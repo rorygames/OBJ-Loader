@@ -1,0 +1,50 @@
+#version 430 core
+
+// Rory Clark
+// http://rorywebdev.com
+// 2016
+
+// Input vertex data, different for all executions of this shader.
+layout(location = 0) in vec3 viPosition;
+layout(location = 1) in vec2 viUvs;
+layout(location = 2) in vec3 viNormals;
+
+// Output data ; will be interpolated for each fragment.
+out vec2 voUV;
+out vec3 voPos;
+out vec3 voNormals;
+out vec3 voCameraDir;
+out vec3 voLightDir;
+
+// Values that stay constant for the whole mesh.
+uniform mat4 modelMat;
+uniform mat4 viewMat;
+uniform mat4 projMat;
+uniform vec3 lightVec;
+
+void main()
+{
+
+	// Assign the vertex position based on the model space
+	gl_Position = projMat * viewMat * modelMat * vec4(viPosition,1);
+	
+	// The position of the model in the view space
+	voPos = (modelMat * vec4(viPosition,1)).xyz;
+	
+	// The position of the vertex in the projection space
+	// Camera will always be looking at the model so we keep that at 0,0,0
+	vec3 vertexPosC = ( viewMat * modelMat * vec4(viPosition,1)).xyz;
+	voCameraDir = vec3(0,0,0) - vertexPosC;
+
+	// Light based on the projection matrix
+	// Model is rotated on X and view is rotated on Y meaning we need the overall result
+	// This means our Y rotation will always be forward/backwards based on the camera
+	vec3 lightPosC = ( projMat * vec4(lightVec,1)).xyz;
+	voLightDir = lightPosC + voCameraDir;
+	
+	// The normals of our vertex in the projection space
+	voNormals = ( viewMat * modelMat * vec4(viNormals,0)).xyz;
+	
+	// UV of the vertex, ignoring the positions as we need this to be constant
+	voUV = viUvs;
+}

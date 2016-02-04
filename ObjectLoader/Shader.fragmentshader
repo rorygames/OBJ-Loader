@@ -1,0 +1,79 @@
+#version 430 core
+
+// Rory Clark
+// http://rorywebdev.com
+// 2016
+
+// Interpolated values from the vertex shaders
+in vec2 voUV;
+in vec3 voPos;
+in vec3 voNormals;
+in vec3 voCameraDir;
+in vec3 voLightDir;
+
+// Ouput data
+out vec3 colour;
+
+// Values that stay constant for the whole mesh.
+uniform sampler2D modelTexture;
+uniform vec3 diffuseColour;
+uniform int isTexture;
+uniform vec3 lightVec;
+uniform float lightPower;
+
+void main()
+{
+
+	vec3 lightColour = vec3(1,1,1);
+	
+	// Create the blank diffuse colour so we can swap textures on and off
+	vec3 materialDiffuseColour;
+	if(isTexture == 0)
+	{
+		// Get only the RGB values of the texture values, we don't need the alpha
+		materialDiffuseColour = texture( modelTexture, voUV ).rgb;
+	}
+	else
+	{
+		// Use the colour vector if there's no texture
+		materialDiffuseColour = diffuseColour;
+	}
+		
+	// Multiply our diffuse by our ambient colour, the higher this is then the brighter the object will be when there's no light on it
+	vec3 materialAmbientColour = vec3(0.1,0.1,0.1) * materialDiffuseColour;
+	// Specular colour is used for out light highlights (closer it is then the bigger the specular highlight)
+	vec3 materialSpecularColour = vec3(0.3,0.3,0.3);
+
+	// Distance to the light from the model
+	float distance = length( lightVec - voPos );
+
+	// Normal of the computed fragment, in view space
+	vec3 n = normalize( voNormals );
+	// Get the direction of our light from the current fragment to the light position
+	vec3 l = normalize( voLightDir );
+	// Cosine of the angle between the normal and the light direction 
+	// clamped between 0 and 1
+	// 1 = light source is vertical to the current triangle
+	// 0 = EITHER light is perpendicular to the triangle or behind it
+	float cosTheta = clamp( dot( n,l ), 0,1 );
+	
+	// The vector of our triangle facing the camera
+	vec3 E = normalize(voCameraDir);
+	// The direction in which we reflect our light
+	vec3 R = reflect(-l,n);
+	// Cosine of the angle between the Eye vector and the Reflect vector
+	// clamped between 0 and 1
+	// 1 = light is directly reflecting towards the camera
+	// > 1 = light is anywhere else, the greater the number then the closer it is
+	float cosAlpha = clamp( dot( E,R ), 0,1 );
+	
+	// The resulting colour for the shape
+	colour = 
+		// Our darkest possible colour
+		materialAmbientColour +
+		// Either our vector based colour or texture, multiplied by the colour and power of our light then by our normal cosine divided by our distance squared (to the model and back)
+		materialDiffuseColour * lightColour * lightPower * cosTheta / (distance*distance) +
+		// Finally we use out specular colour to increase lighting to the model depending on how close or far it is from the light source
+		materialSpecularColour * lightColour * lightPower * pow(cosAlpha,5) / (distance*distance);
+
+}
